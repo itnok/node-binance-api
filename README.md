@@ -1,4 +1,4 @@
-[![GitHub last commit](https://img.shields.io/github/last-commit/jaggedsoft/node-binance-api.svg)](#)
+[![GitHub last commit](https://img.shields.io/github/last-commit/itnok/node-binance-api.svg)](#)
 [![npm downloads](https://img.shields.io/npm/dt/node-binance-api.svg)](https://www.npmjs.com/package/node-binance-api)
 
 [![NPM](https://nodei.co/npm/node-binance-api.png?compact=true)](https://npmjs.org/package/node-binance-api)
