@@ -39,14 +39,9 @@ module.exports = function() {
 			}
 		};
 		request(opt, function(error, response, body) {
-			if ( !response || !body ) throw 'publicRequest error: '+error;
-			if ( callback ) {
-				try {
-					callback(JSON.parse(body));
-				} catch (error) {
-					console.error('Parse error: '+error.message);
-				}
-			}
+			if ( error ) throw error;
+			if ( response && response.statusCode !== 200 ) throw response;
+			if ( callback ) callback(JSON.parse(body));
 		});
 	};
 
@@ -64,14 +59,9 @@ module.exports = function() {
 			}
 		};
 		request(opt, function(error, response, body) {
-			if ( !response || !body ) throw 'apiRequest error: '+error;
-			if ( callback ) {
-				try {
-					callback(JSON.parse(body));
-				} catch (error) {
-					console.error('Parse error: '+error.message);
-				}
-			}
+			if ( error ) throw error;
+			if ( response && response.statusCode !== 200 ) throw response;
+			if ( callback ) callback(JSON.parse(body));
 		});
 	};
 
@@ -95,14 +85,9 @@ module.exports = function() {
 			}
 		};
 		request(opt, function(error, response, body) {
-			if ( !response || !body ) throw 'signedRequest error: '+error;
-			if ( callback ) {
-				try {
-					callback(JSON.parse(body));
-				} catch (error) {
-					console.error('Parse error: '+error.message);
-				}
-			}
+			if ( error ) throw error;
+			if ( response && response.statusCode !== 200 ) throw response;
+			if ( callback ) callback(JSON.parse(body));
 		});
 	};
 
@@ -117,6 +102,7 @@ module.exports = function() {
 		};
 		if ( typeof flags.type !== 'undefined' ) opt.type = flags.type;
 		if ( typeof flags.timeInForce !== 'undefined' ) opt.timeInForce = flags.timeInForce;
+		if ( typeof flags.newOrderRespType !== "undefined") opt.newOrderRespType = flags.newOrderRespType;
 		if ( opt.type.includes('LIMIT') ) {
 			opt.price = price;
 			opt.timeInForce = 'GTC';
@@ -335,6 +321,10 @@ LIMIT_MAKER
 			}
 		}
 	};
+	const getDepthCache = function(symbol) {
+		if ( typeof depthCache[symbol] === 'undefined' ) return {bids: {}, asks: {}};
+		return depthCache[symbol];
+	};
 	const depthVolume = function(symbol) { // Calculate Buy/Sell volume from DepthCache
 		let cache = getDepthCache(symbol), quantity, price;
 		let bidbase = 0, askbase = 0, bidqty = 0, askqty = 0;
@@ -349,10 +339,6 @@ LIMIT_MAKER
 			askqty+= quantity;
 		}
 		return {bids: bidbase, asks: askbase, bidQty: bidqty, askQty: askqty};
-	};
-	const getDepthCache = function(symbol) {
-		if ( typeof depthCache[symbol] === 'undefined' ) return {bids: {}, asks: {}};
-		return depthCache[symbol];
 	};
 	////////////////////////////
 	return {
@@ -439,11 +425,11 @@ LIMIT_MAKER
 		sell: function(symbol, quantity, price, flags = {}, callback = false) {
 			order('SELL', symbol, quantity, price, flags, callback);
 		},
-		marketBuy: function(symbol, quantity, callback = false) {
-			order('BUY', symbol, quantity, 0, {type:'MARKET'}, callback);
+		marketBuy: function(symbol, quantity, flags = {type:'MARKET'}, callback = false) {
+			order('BUY', symbol, quantity, 0, flags, callback);
 		},
-		marketSell: function(symbol, quantity, callback = false) {
-			order('SELL', symbol, quantity, 0, {type:'MARKET'}, callback);
+		marketSell: function(symbol, quantity, flags = {type:'MARKET'}, callback = false) {
+			order('SELL', symbol, quantity, 0, flags, callback);
 		},
 		cancel: function(symbol, orderid, callback = false) {
 			signedRequest(base+'v3/order', {symbol:symbol, orderId:orderid}, function(data) {
@@ -543,8 +529,18 @@ LIMIT_MAKER
 				if ( callback ) callback(balanceData(data));
 			});
 		},
-		trades: function(symbol, callback) {
-			signedRequest(base+'v3/myTrades', {symbol:symbol}, function(data) {
+/*
+Breaking change: Spread operator is unsupported by Electron
+Move this to a future release v0.4.0
+		trades: function(symbol, callback, options) {
+			signedRequest(base+'v3/myTrades', {symbol:symbol, ...options}, function(data) {
+				if ( callback ) return callback.call(this, data, symbol);
+			});
+		},
+*/
+		trades: function(symbol, callback, options = {}) {
+			let parameters = Object.assign({symbol:symbol}, options);
+			signedRequest(base+'v3/myTrades', parameters, function(data) {
 				if ( callback ) return callback.call(this, data, symbol);
 			});
 		},
@@ -639,16 +635,18 @@ LIMIT_MAKER
 				}
 			},
 			depthCache: function depthCacheFunction(symbols, callback, limit = 500) {
+				if ( typeof symbols === 'string' ) symbols = [symbols]; // accept both strings and arrays
 				for ( let symbol of symbols ) {
 					if ( typeof info[symbol] === 'undefined' ) info[symbol] = {};
 					info[symbol].firstUpdateId = 0;
 					depthCache[symbol] = {bids: {}, asks: {}};
 					messageQueue[symbol] = [];
 					let reconnect = function() {
-						if ( options.reconnect ) depthCacheFunction(symbols, callback);
+						if ( options.reconnect ) depthCacheFunction([symbol], callback);
 					};
 					subscribe(symbol.toLowerCase()+'@depth', function(depth) {
 						if ( !info[symbol].firstUpdateId ) {
+							if ( typeof messageQueue[symbol] === 'undefined' ) messageQueue[symbol] = [];
 							messageQueue[symbol].push(depth);
 							return;
 						}
