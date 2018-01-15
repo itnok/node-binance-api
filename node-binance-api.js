@@ -25,7 +25,24 @@ module.exports = function() {
 	let ohlc = {};
 	let options = {recvWindow:60000, reconnect:true, test: false};
 
-	const publicRequest = function(url, data, callback, method = 'GET') {
+	/**
+	 * publicRequest
+	 * Execute a RESTful request on a public endpoint (NO credentials needed)
+	 *
+	 * @private
+	 *
+	 * @param  {String}   url      public Binance URL to query
+	 * @param  {Object}   data     payload to send along with the request
+	 * @param  {Function} callback function to call at the end of the request process
+	 *                             (default: false)
+	 * @param  {String}   method   http method to use for the request
+	 *                             (default: 'GET')
+	 *
+	 * @throws {Error}    If API request cannot complete correctly
+	 * @throws {Object}   If API request returns statusCode !== 200
+	 *
+	 */
+	const publicRequest = function(url, data, callback = false, method = 'GET') {
 		if ( !data ) data = {};
 		let opt = {
 			url: url,
@@ -45,7 +62,24 @@ module.exports = function() {
 		});
 	};
 
-	const apiRequest = function(url, callback, method = 'GET') {
+	/**
+	 * apiRequest
+	 * Execute a RESTful request on an endpoint requiring API key
+	 *
+	 * @private
+	 *
+	 * @param  {String}   url      api key-protected Binance URL to query
+	 * @param  {Function} callback function to call at the end of the request process
+	 *                             (default: false)
+	 * @param  {String}   method   http method to use for the request
+	 *                             (default: 'GET')
+	 *
+	 * @throws {String}   If API key is not provided in the options
+	 * @throws {Error}    If API request cannot complete correctly
+	 * @throws {Object}   If API request returns statusCode !== 200
+	 *
+	 */
+	const apiRequest = function(url, callback = false, method = 'GET') {
 		if ( !options.APIKEY ) throw 'apiRequest: Invalid API Key';
 		let opt = {
 			url: url,
@@ -65,7 +99,25 @@ module.exports = function() {
 		});
 	};
 
-	const signedRequest = function(url, data, callback, method = 'GET') {
+	/**
+	 * signedRequest
+	 * Execute a RESTful request on an endpoint requiring full auth via both API key & secret
+	 *
+	 * @private
+	 *
+	 * @param  {String}   url      api key&secret-protected  Binance URL to query
+	 * @param  {Object}   data     payload to send along with the request
+	 * @param  {Function} callback function to call at the end of the request process
+	 *                             (default: false)
+	 * @param  {String}   method   http method to use for the request
+	 *                             (default: 'GET')
+	 *
+	 * @throws {String}   If API secret is not provided in the options
+	 * @throws {Error}    If API request cannot complete correctly
+	 * @throws {Object}   If API request returns statusCode !== 200
+	 *
+	 */
+	const signedRequest = function(url, data, callback = false, method = 'GET') {
 		if ( !options.APISECRET ) throw 'signedRequest: Invalid API Secret';
 		if ( !data ) data = {};
 		data.timestamp = new Date().getTime();
@@ -91,6 +143,23 @@ module.exports = function() {
 		});
 	};
 
+	/**
+	 * order
+	 * Execute an order (buy or sell) on the Binance exchange
+	 *
+	 * @private
+	 *
+	 * @param  {String}   side     operation to execute ('BUY' or 'SELL')
+	 * @param  {String}   symbol   Binance crypto symbol (eg. 'BTCETH')
+	 * @param  {Float}    quantity quantity of shares to buy or sell
+	 * @param  {Float}    price    price requested for the operation
+	 * @param  {Object}   flags    additional parameters/flags to customise the order
+	 *                             (eg. type, timeInForce, newOrderRespType, stopPrice, icebergQty, ecc.)
+	 *                             (default: {})
+	 * @param  {Function} callback function to call at the end of the transaction
+	 *                             (default: false)
+	 *
+	 */
 	const order = function(side, symbol, quantity, price, flags = {}, callback = false) {
 		let endpoint = 'v3/order';
 		if ( options.test ) endpoint += '/test';
@@ -128,7 +197,23 @@ LIMIT_MAKER
 			else console.log(side+'('+symbol+','+quantity+','+price+') ',response);
 		}, 'POST');
 	};
+
 	////////////////////////////
+
+	/**
+	 * subscribe
+	 * Subscribe via WebSocket to the specified endpoint (auto-reconnect if necessary)
+	 *
+	 * @private
+	 *
+	 * @param  {String}    endpoint  endpoint to listen to
+	 * @param  {Function}  callback  callback function to execute on new incoming data
+	 * @param  {Boolean}   reconnect auto-reconnect in case of disconnection
+	 *                               (default: false)
+	 *
+	 * @return {WebSocket}           WebSocket object representing the subscribed endpoint
+	 *
+	 */
 	const subscribe = function(endpoint, callback, reconnect = false) {
 		const ws = new WebSocket(websocket_base+endpoint);
 		ws.endpoint = endpoint;
@@ -157,6 +242,17 @@ LIMIT_MAKER
 		subscriptions[endpoint] = ws;
 		return ws;
 	};
+
+	/**
+	 * userDataHandler
+	 * Helper callback used internally to dealt with user data recaived via WebSocket
+	 *
+	 * @private
+	 *
+	 * @param  {Object} data data returned by the 'v1/userDataStream' endpoint
+	 *                       {@link https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md}
+	 *
+	 */
 	const userDataHandler = function(data) {
 		let type = data.e;
 		if ( type === 'outboundAccountInfo' ) {
