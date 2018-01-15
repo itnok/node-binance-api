@@ -38,9 +38,6 @@ module.exports = function() {
 	 * @param  {String}   method   http method to use for the request
 	 *                             (default: 'GET')
 	 *
-	 * @throws {Error}    If API request cannot complete correctly
-	 * @throws {Object}   If API request returns statusCode !== 200
-	 *
 	 */
 	const publicRequest = function(url, data, callback = false, method = 'GET') {
 		if ( !data ) data = {};
@@ -80,8 +77,6 @@ module.exports = function() {
 	 *                             (default: 'GET')
 	 *
 	 * @throws {String}   If API key is not provided in the options
-	 * @throws {Error}    If API request cannot complete correctly
-	 * @throws {Object}   If API request returns statusCode !== 200
 	 *
 	 */
 	const apiRequest = function(url, callback = false, method = 'GET') {
@@ -123,8 +118,6 @@ module.exports = function() {
 	 *                             (default: 'GET')
 	 *
 	 * @throws {String}   If API secret is not provided in the options
-	 * @throws {Error}    If API request cannot complete correctly
-	 * @throws {Object}   If API request returns statusCode !== 200
 	 *
 	 */
 	const signedRequest = function(url, data, callback = false, method = 'GET') {
@@ -279,6 +272,7 @@ LIMIT_MAKER
 			console.error('Unexpected userData: '+type);
 		}
 	};
+
 	const prevDayStreamHandler = function(data, callback) {
 		let {
 			e:eventType,
