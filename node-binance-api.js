@@ -56,9 +56,14 @@ module.exports = function() {
 			}
 		};
 		request(opt, function(error, response, body) {
-			if ( error ) throw error;
-			if ( response && response.statusCode !== 200 ) throw response;
-			if ( callback ) callback(JSON.parse(body));
+			if ( !response || !body ) throw 'publicRequest error: '+error;
+			if ( callback ) {
+				try {
+					callback(JSON.parse(body));
+				} catch (error) {
+					console.error('Parse error: '+error.message);
+				}
+			}
 		});
 	};
 
@@ -93,9 +98,14 @@ module.exports = function() {
 			}
 		};
 		request(opt, function(error, response, body) {
-			if ( error ) throw error;
-			if ( response && response.statusCode !== 200 ) throw response;
-			if ( callback ) callback(JSON.parse(body));
+			if ( !response || !body ) throw 'apiRequest error: '+error;
+			if ( callback ) {
+				try {
+					callback(JSON.parse(body));
+				} catch (error) {
+					console.error('Parse error: '+error.message);
+				}
+			}
 		});
 	};
 
@@ -137,9 +147,14 @@ module.exports = function() {
 			}
 		};
 		request(opt, function(error, response, body) {
-			if ( error ) throw error;
-			if ( response && response.statusCode !== 200 ) throw response;
-			if ( callback ) callback(JSON.parse(body));
+			if ( !response || !body ) throw 'signedRequest error: '+error;
+			if ( callback ) {
+				try {
+					callback(JSON.parse(body));
+				} catch (error) {
+					console.error('Parse error: '+error.message);
+				}
+			}
 		});
 	};
 
@@ -170,12 +185,13 @@ module.exports = function() {
 			quantity: quantity
 		};
 		if ( typeof flags.type !== 'undefined' ) opt.type = flags.type;
-		if ( typeof flags.timeInForce !== 'undefined' ) opt.timeInForce = flags.timeInForce;
-		if ( typeof flags.newOrderRespType !== "undefined") opt.newOrderRespType = flags.newOrderRespType;
 		if ( opt.type.includes('LIMIT') ) {
 			opt.price = price;
 			opt.timeInForce = 'GTC';
 		}
+		if ( typeof flags.timeInForce !== 'undefined' ) opt.timeInForce = flags.timeInForce;
+		if ( typeof flags.newOrderRespType !== "undefined") opt.newOrderRespType = flags.newOrderRespType;
+		if ( typeof flags.newClientOrderId !== "undefined" ) opt.newClientOrderId = flags.newClientOrderId;
 
 		/*
 STOP_LOSS
@@ -191,7 +207,7 @@ LIMIT_MAKER
 		}
 		signedRequest(base+endpoint, opt, function(response) {
 			if ( typeof response.msg !== 'undefined' && response.msg === 'Filter failure: MIN_NOTIONAL' ) {
-				console.error('Order quantity too small. Must be > 0.01');
+				console.error('Order quantity too small. See exchangeInfo() for minimum amounts');
 			}
 			if ( callback ) callback(response);
 			else console.log(side+'('+symbol+','+quantity+','+price+') ',response);
@@ -522,9 +538,19 @@ LIMIT_MAKER
 			order('SELL', symbol, quantity, price, flags, callback);
 		},
 		marketBuy: function(symbol, quantity, flags = {type:'MARKET'}, callback = false) {
+			if ( typeof flags === 'function' ) { // Accept callback as third parameter
+				callback = flags;
+				flags = {type:'MARKET'};
+			}
+			if ( typeof flags.type == 'undefined' ) flags.type = 'MARKET';
 			order('BUY', symbol, quantity, 0, flags, callback);
 		},
 		marketSell: function(symbol, quantity, flags = {type:'MARKET'}, callback = false) {
+			if ( typeof flags === 'function' ) { // Accept callback as third parameter
+				callback = flags;
+				flags = {type:'MARKET'};
+			}
+			if ( typeof flags.type == 'undefined' ) flags.type = 'MARKET';
 			order('SELL', symbol, quantity, 0, flags, callback);
 		},
 		cancel: function(symbol, orderid, callback = false) {
@@ -675,8 +701,9 @@ Move this to a future release v0.4.0
 			}
 			return {open:open, high:high, low:low, close:close, volume:volume};
 		},
-		candlesticks: function(symbol, interval = '5m', callback) { //1m,3m,5m,15m,30m,1h,2h,4h,6h,8h,12h,1d,3d,1w,1M
-			publicRequest(base+'v1/klines', {symbol:symbol, interval:interval}, function(data) {
+		candlesticks: function(symbol, interval, callback, options = {limit:500}) { // additional options: startTime, endTime
+		  let params = Object.assign({symbol:symbol, interval:interval}, options);
+			publicRequest(base+'v1/klines', params, function(data) {
 				return callback.call(this, data, symbol);
 			});
 		},
